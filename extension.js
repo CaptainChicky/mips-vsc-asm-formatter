@@ -63,12 +63,12 @@ function isStandaloneDirective(line) {
 function isDataDirective(line) {
 	// Data directives that are part of variable declarations
 	const trimmed = line.trim();
-	return trimmed.startsWith('.word ') || trimmed.startsWith('.byte ') ||
-	       trimmed.startsWith('.half ') || trimmed.startsWith('.halfword ') ||
-	       trimmed.startsWith('.hword ') || trimmed.startsWith('.dword ') ||
-	       trimmed.startsWith('.double ') || trimmed.startsWith('.float ') ||
-	       trimmed.startsWith('.ascii ') || trimmed.startsWith('.asciiz ') ||
-	       trimmed.startsWith('.space ') || trimmed.startsWith('.align ');
+	return trimmed.startsWith('.word') || trimmed.startsWith('.byte') ||
+	       trimmed.startsWith('.half') || trimmed.startsWith('.halfword') ||
+	       trimmed.startsWith('.hword') || trimmed.startsWith('.dword') ||
+	       trimmed.startsWith('.double') || trimmed.startsWith('.float') ||
+	       trimmed.startsWith('.ascii') || trimmed.startsWith('.asciiz') ||
+	       trimmed.startsWith('.space') || trimmed.startsWith('.align');
 }
 
 function extractStrings(line) {
@@ -407,10 +407,21 @@ function format(text) {
 				inMultiLineData = false;
 				result.push('\t' + trimmed + (line.comment ? ' ' + line.comment : ''));
 			}
-			// Data directive not in multi-line block - single indent and end block
+			// Data directive - check if it has data after it
 			else if (isDataDir) {
-				inMultiLineData = false;
-				result.push('\t' + trimmed + (line.comment ? ' ' + line.comment : ''));
+				// Check if directive has data after it (e.g., ".byte 1 2 3" vs just ".byte")
+				const directiveMatch = trimmed.match(/^\.\w+\s+/);
+				const hasDataAfter = directiveMatch && trimmed.length > directiveMatch[0].length;
+				
+				if (hasDataAfter) {
+					// Has data, single indent and end block
+					inMultiLineData = false;
+					result.push('\t' + trimmed + (line.comment ? ' ' + line.comment : ''));
+				} else {
+					// No data after directive, start multi-line block
+					result.push('\t\t' + trimmed + (line.comment ? ' ' + line.comment : ''));
+					inMultiLineData = true;
+				}
 			}
 			// String/value not in multi-line block - double indent (continuation of something)
 			else if (isStringOrValue) {

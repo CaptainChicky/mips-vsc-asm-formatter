@@ -1,4 +1,15 @@
 # Change Log
+## v1.2.0
+- Added: Macro support - macros are formatted as text templates without extra indentation
+- Added: Multi-line data declarations with empty labels now properly double-indent continuation lines
+- Added: Support for data directives without inline data (e.g., `.byte` on its own line)
+- Added: "DO NOT FORMAT" regions - wrap code in `# DO NOT FORMAT START/END` to preserve custom formatting
+- Fixed: Comments before labels and directives are no longer incorrectly indented
+- Fixed: Data directives (`.double`, `.word`, etc.) in `.data` sections now properly track multi-line blocks
+- Fixed: Comments in macros and `.text` sections are now properly indented
+- Fixed: Standalone data directives no longer treated as multi-line continuations
+- Improved: Better detection of multi-line data blocks - stops at comments, empty lines, or non-data directives
+- Added: Support for `.hword` and `.dword` data directives
 
 ## v1.1.0
 - Complete rewrite of formatting logic for MIPS assembly by CC
