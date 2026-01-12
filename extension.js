@@ -51,6 +51,12 @@ function isCommentOnly(line) {
 	return trimmed.startsWith('#');
 }
 
+function isPreserveIndentComment(line) {
+	// Comments starting with #! should preserve their original indentation
+	const trimmed = line.trim();
+	return trimmed.startsWith('#!');
+}
+
 function isStandaloneDirective(line) {
 	// Directives that stand alone and aren't part of data declarations
 	const trimmed = line.trim();
@@ -361,7 +367,12 @@ function format(text) {
 			// Comment-only line in .data section - ends multi-line data block
 			if (isCommentOnly(line.original)) {
 				inMultiLineData = false;
-				result.push(line.comment);
+				// If it's a preserve-indent comment (#!), output as-is
+				if (isPreserveIndentComment(line.original)) {
+					result.push(line.original);
+				} else {
+					result.push(line.comment);
+				}
 				continue;
 			}
 			
@@ -449,6 +460,12 @@ function format(text) {
 		
 		// Handle comment-only lines - always look ahead
 		if (isCommentOnly(line.original)) {
+			// If it's a preserve-indent comment (#!), output as-is with original indentation
+			if (isPreserveIndentComment(line.original)) {
+				result.push(line.original);
+				continue;
+			}
+			
 			// Look ahead to see if next non-comment line is a label or directive
 			const nextLine = findNextNonCommentLine(lines, i);
 			const nextTrimmed = nextLine ? nextLine.code.trim() : '';

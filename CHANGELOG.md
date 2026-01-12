@@ -4,6 +4,7 @@
 - Added: Multi-line data declarations with empty labels now properly double-indent continuation lines
 - Added: Support for data directives without inline data (e.g., `.byte` on its own line)
 - Added: "DO NOT FORMAT" regions - wrap code in `# DO NOT FORMAT START/END` to preserve custom formatting
+- Added: Inline directive `#!` to keep comment indentation as-is.
 - Fixed: Comments before labels and directives are no longer incorrectly indented
 - Fixed: Data directives (`.double`, `.word`, etc.) in `.data` sections now properly track multi-line blocks
 - Fixed: Comments in macros and `.text` sections are now properly indented
