@@ -6,9 +6,11 @@ const vscode = require('vscode');
 function activate(context) {
 	console.log('asmformat is active!');
 
-	// Register as a document formatter for .asm files
-	const formatter = vscode.languages.registerDocumentFormattingEditProvider('asm', {
-		provideDocumentFormattingEdits(document) {
+	// Register for multiple language IDs
+	const formatter = vscode.languages.registerDocumentFormattingEditProvider(
+		['asm', 'mips', 'mips-asm', 'assembly'], 
+		{
+			provideDocumentFormattingEdits(document) {
 			const firstLine = document.lineAt(0);
 			const lastLine = document.lineAt(document.lineCount - 1);
 			const textRange = new vscode.Range(firstLine.range.start, lastLine.range.end);
@@ -16,8 +18,9 @@ function activate(context) {
 			const formattedText = format(document.getText());
 			
 			return [vscode.TextEdit.replace(textRange, formattedText)];
+			}
 		}
-	});
+	);
 
 	context.subscriptions.push(formatter);
 }

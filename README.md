@@ -11,3 +11,11 @@ The formatter will automatically:
 - Align `.data` section declarations
 - Preserve comments and strings
 - Format multi-line data properly
+
+## Compiling
+
+To compile and test, run
+```batchfile
+vsce package
+```
+the `/.vscode/launch.json` apparently allows you to test the extension in a new window by doing `f5`.
