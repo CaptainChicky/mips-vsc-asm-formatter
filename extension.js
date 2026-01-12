@@ -295,7 +295,6 @@ function format(text) {
 				currentFunction = null;
 			}
 			inMacro = true;
-			inMultiLineData = false; // Reset multi-line data state
 			result.push(trimmed + (line.comment ? ' ' + line.comment : ''));
 			continue;
 		}
@@ -309,7 +308,6 @@ function format(text) {
 				currentFunction = null;
 			}
 			inMacro = false;
-			inMultiLineData = false; // Reset multi-line data state
 			result.push(trimmed + (line.comment ? ' ' + line.comment : ''));
 			continue;
 		}
@@ -411,7 +409,7 @@ function format(text) {
 			const isStandaloneDir = isStandaloneDirective(line.original);
 			const isStringOrValue = !trimmed.startsWith('.') && trimmed.length > 0;
 			
-			// Standalone directives always end multi-line data block
+			// Standalone directives end multi-line data block
 			if (isStandaloneDir) {
 				inMultiLineData = false;
 				result.push('\t' + trimmed + (line.comment ? ' ' + line.comment : ''));
@@ -420,15 +418,14 @@ function format(text) {
 			else if (inMultiLineData && (isDataDir || isStringOrValue)) {
 				result.push('\t\t' + trimmed + (line.comment ? ' ' + line.comment : ''));
 			}
-			// Data directive - check if it has data after it
+			// Data directive NOT in multi-line block
 			else if (isDataDir) {
 				// Check if directive has data after it (e.g., ".byte 1 2 3" vs just ".byte")
 				const directiveMatch = trimmed.match(/^\.\w+\s+/);
 				const hasDataAfter = directiveMatch && trimmed.length > directiveMatch[0].length;
 				
 				if (hasDataAfter) {
-					// Has data, single indent and end block
-					inMultiLineData = false;
+					// Has data, single indent (not part of multi-line block)
 					result.push('\t' + trimmed + (line.comment ? ' ' + line.comment : ''));
 				} else {
 					// No data after directive, start multi-line block

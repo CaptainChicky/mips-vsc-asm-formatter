@@ -12,23 +12,23 @@
 	Ascii:            .ascii "Unterminated string"
 	Message:          .halfword 'A'
 	LabelMed:         .word 20
-	
-	# Standalone directives (.eqv, .include, etc.) are indented with 1 tab
+
+# Standalone directives (.eqv, .include, etc.) are indented with 1 tab
 	.eqv DISPLAY_MODE_FB_ENABLE 1
 	.eqv DISPLAY_MODE_TM_ENABLE 2
-	
-	# Standalone data directives get single indent
+
+# Standalone data directives get single indent
 	.double 0.1, 0.2, 0.3 # test
-	
-	# Multi-line data declarations: label-only line starts double-indent block
+
+# Multi-line data declarations: label-only line starts double-indent block
 	MultiLine:
 		.double 0.1, 0.2, 0.3
 		.double 0.4, 0.5, 0.6
 		.double 0.7, 0.8, 0.9
 # Comment ends multi-line block (not indented - before next item)
 	.double 0.1, 0.1, 0.1
-	
-	# Another multi-line example
+
+# Another multi-line example
 	MultiLine2:
 		.double 0.1, 0.2, 0.3
 		.double 0.4, 0.5, 0.6
@@ -42,7 +42,7 @@
 	Buffer:           .space 100
 	SomeLabel:        .word 1, 2, 3, 4 # inline comment
 
-	# Multi-line ASCII data with string literals (double-indented)
+# Multi-line ASCII data with string literals (double-indented)
 	map_data:         .ascii
 		"######          "
 		"#    #          "
@@ -60,11 +60,11 @@
 		"       .~~~~~~~~"
 		"       .~~~~~~~~"
 		"       .~~~~~~~~"
-	
-	# Include statement (indented)
+
+# Include statement (indented)
 	.include "file"
 
-	# Data directive on separate line from values
+# Data directive on separate line from values
 	nes_font_xlate:
 		.byte
 		187 188 189 190 191 192 193 194 195 196 197 198 199 200 201 202
@@ -74,7 +74,7 @@
 		251 220 221 222 223 224 225 226 227 228 229 230 231 232 233 234
 		235 236 237 238 239 240 241 242 243 244 245 252 253 254 255
 
-	# Multi-line with directive on separate line
+# Multi-line with directive on separate line
 	multilinetesting:
 		.double 0.1, 0.1, 0.2
 # Comment ends block
@@ -83,8 +83,9 @@
 	testin420385ru9t:
 		.double
 		0.1, 0.2, 0.3
-
-	# Standalone directive after multi-line data
+	.eqv DISPLAY 1
+	.double 0.3, 0.5, 0.1
+# Standalone directive after multi-line data
 	.byte 123 593 944
 
 # ----------------------------------------------------------------------------
@@ -93,7 +94,7 @@
 # Code section - functions and their contents
 
 .text
-	# Directives in .text section are indented
+# Directives in .text section are indented
 	.extern main
 	.globl main
 	.section .text
@@ -138,11 +139,11 @@ base_case:
 	li $v0, 1    # 0! is 1
 	jr $ra       # Return
 
-# ----------------------------------------------------------------------------
-# DO NOT FORMAT REGIONS
-# ----------------------------------------------------------------------------
-# Use special markers to preserve custom formatting for specific sections
-# Everything between START and END is output exactly as written
+	# ----------------------------------------------------------------------------
+	# DO NOT FORMAT REGIONS
+	# ----------------------------------------------------------------------------
+	# Use special markers to preserve custom formatting for specific sections
+	# Everything between START and END is output exactly as written
 
 # DO NOT FORMAT START
 	li s0, 0
@@ -215,18 +216,18 @@ return:
 	addi $sp, $sp, 8
 	jr $ra                # return
 
-# ----------------------------------------------------------------------------
-# KEY FORMATTING RULES SUMMARY
-# ----------------------------------------------------------------------------
-# 1. Strings are never modified (content inside quotes preserved)
-# 2. Comments starting with # are preserved (# inside strings ignored)
-# 3. .data and .text section headers are not indented
-# 4. Data declarations get 1 tab, multi-line continuations get 2 tabs
-# 5. Functions (labels with :) are not indented
-# 6. Code inside functions gets 1 tab
-# 7. Inline comments align 1 space after longest code line in function
-# 8. Comments before labels/directives are not indented
-# 9. Macros are formatted as normal code (no extra indent)
-# 10. Use # DO NOT FORMAT START/END for custom formatting regions
-# 11. Use #! for individual comments to preserve indentation
-# ----------------------------------------------------------------------------
+	# ----------------------------------------------------------------------------
+	# KEY FORMATTING RULES SUMMARY
+	# ----------------------------------------------------------------------------
+	# 1. Strings are never modified (content inside quotes preserved)
+	# 2. Comments starting with # are preserved (# inside strings ignored)
+	# 3. .data and .text section headers are not indented
+	# 4. Data declarations get 1 tab, multi-line continuations get 2 tabs
+	# 5. Functions (labels with :) are not indented
+	# 6. Code inside functions gets 1 tab
+	# 7. Inline comments align 1 space after longest code line in function
+	# 8. Comments before labels/directives are not indented
+	# 9. Macros are formatted as normal code (no extra indent)
+	# 10. Use # DO NOT FORMAT START/END for custom formatting regions
+	# 11. Use #! for individual comments to preserve indentation
+	# ----------------------------------------------------------------------------
