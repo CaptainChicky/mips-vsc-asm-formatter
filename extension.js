@@ -260,7 +260,6 @@ function format(text) {
 	let functionLines = [];
 	let result = [];
 	let inMacro = false;
-	let macroIndent = '';
 	
 	for (let i = 0; i < lines.length; i++) {
 		const line = lines[i];
@@ -270,7 +269,7 @@ function format(text) {
 		if (line.disabled) {
 			// Flush any pending function first
 			if (currentFunction !== null) {
-				result.push(...formatFunction(functionLines, inMacro ? '\t' : ''));
+				result.push(...formatFunction(functionLines));
 				functionLines = [];
 				currentFunction = null;
 			}
@@ -282,36 +281,37 @@ function format(text) {
 		if (trimmed.startsWith('.macro ')) {
 			// Flush any pending function
 			if (currentFunction !== null) {
-				result.push(...formatFunction(functionLines, ''));
+				result.push(...formatFunction(functionLines));
 				functionLines = [];
 				currentFunction = null;
 			}
 			inMacro = true;
-			macroIndent = '';
 			result.push(trimmed + (line.comment ? ' ' + line.comment : ''));
 			continue;
 		}
 		
 		// Handle macro end
 		if (trimmed === '.end_macro') {
+			// Flush any pending function before ending macro
+			if (currentFunction !== null) {
+				result.push(...formatFunction(functionLines));
+				functionLines = [];
+				currentFunction = null;
+			}
 			inMacro = false;
-			macroIndent = '';
 			result.push(trimmed + (line.comment ? ' ' + line.comment : ''));
 			continue;
 		}
-		
-		// If inside macro, add extra tab to everything
-		const extraIndent = inMacro ? '\t' : '';
 		
 		// Handle section directives (.text, .data)
 		if (isSectionDirective(line.original)) {
 			// Flush any pending function
 			if (currentFunction !== null) {
-				result.push(...formatFunction(functionLines, extraIndent));
+				result.push(...formatFunction(functionLines));
 				functionLines = [];
 				currentFunction = null;
 			}
-			result.push(extraIndent + trimmed + (line.comment ? ' ' + line.comment : ''));
+			result.push(trimmed + (line.comment ? ' ' + line.comment : ''));
 			continue;
 		}
 		
@@ -319,11 +319,11 @@ function format(text) {
 		if (trimmed.startsWith('.') && !trimmed.includes(':')) {
 			// Flush any pending function
 			if (currentFunction !== null) {
-				result.push(...formatFunction(functionLines, extraIndent));
+				result.push(...formatFunction(functionLines));
 				functionLines = [];
 				currentFunction = null;
 			}
-			result.push(extraIndent + '\t' + trimmed + (line.comment ? ' ' + line.comment : ''));
+			result.push('\t' + trimmed + (line.comment ? ' ' + line.comment : ''));
 			continue;
 		}
 		
@@ -342,7 +342,7 @@ function format(text) {
 		if (inDataSection) {
 			// Comment-only line in .data section
 			if (isCommentOnly(line.original)) {
-				result.push(extraIndent + line.comment);
+				result.push(line.comment);
 				continue;
 			}
 			
@@ -368,17 +368,17 @@ function format(text) {
 				if (rest) {
 					// Label with data on same line - align the data part
 					const spaces = ' '.repeat(dataSection.maxLabelLength - label.length + 1);
-					result.push(extraIndent + '\t' + label + ':' + spaces + rest + (line.comment ? ' ' + line.comment : ''));
+					result.push('\t' + label + ':' + spaces + rest + (line.comment ? ' ' + line.comment : ''));
 				} else {
 					// Label only, data on next lines
-					result.push(extraIndent + '\t' + label + ':');
+					result.push('\t' + label + ':');
 				}
 			} else if (isMultilineData) {
 				// Multi-line data continuation (double indent)
-				result.push(extraIndent + '\t\t' + trimmed + (line.comment ? ' ' + line.comment : ''));
+				result.push('\t\t' + trimmed + (line.comment ? ' ' + line.comment : ''));
 			} else {
 				// Other lines (shouldn't normally happen)
-				result.push(extraIndent + '\t' + trimmed + (line.comment ? ' ' + line.comment : ''));
+				result.push('\t' + trimmed + (line.comment ? ' ' + line.comment : ''));
 			}
 			continue;
 		}
@@ -387,11 +387,11 @@ function format(text) {
 		if (isLabel(line.original)) {
 			// Flush previous function if exists
 			if (currentFunction !== null) {
-				result.push(...formatFunction(functionLines, extraIndent));
+				result.push(...formatFunction(functionLines));
 				functionLines = [];
 			}
 			currentFunction = trimmed;
-			result.push(extraIndent + trimmed + (line.comment ? ' ' + line.comment : ''));
+			result.push(trimmed + (line.comment ? ' ' + line.comment : ''));
 			continue;
 		}
 		
@@ -403,11 +403,11 @@ function format(text) {
 				// This comment is right before a function, don't indent
 				// If we're in a function, flush it first
 				if (currentFunction !== null) {
-					result.push(...formatFunction(functionLines, extraIndent));
+					result.push(...formatFunction(functionLines));
 					functionLines = [];
 					currentFunction = null;
 				}
-				result.push(extraIndent + line.comment);
+				result.push(line.comment);
 			} else {
 				// Not before a function
 				if (currentFunction !== null) {
@@ -415,7 +415,7 @@ function format(text) {
 					functionLines.push(line);
 				} else {
 					// Outside a function, don't indent
-					result.push(extraIndent + line.comment);
+					result.push(line.comment);
 				}
 			}
 			continue;
@@ -436,19 +436,19 @@ function format(text) {
 			functionLines.push(line);
 		} else {
 			// Lines outside any function or section
-			result.push(extraIndent + trimmed + (line.comment ? ' ' + line.comment : ''));
+			result.push(trimmed + (line.comment ? ' ' + line.comment : ''));
 		}
 	}
 	
 	// Flush any remaining function
 	if (currentFunction !== null) {
-		result.push(...formatFunction(functionLines, inMacro ? '\t' : ''));
+		result.push(...formatFunction(functionLines));
 	}
 	
 	return result.join('\n') + '\n';
 }
 
-function formatFunction(lines, extraIndent = '') {
+function formatFunction(lines) {
 	const result = [];
 	
 	// Find max code length for inline comment alignment
@@ -466,13 +466,13 @@ function formatFunction(lines, extraIndent = '') {
 	for (const line of lines) {
 		// Comment-only line: indent with one tab
 		if (isCommentOnly(line.original)) {
-			result.push(extraIndent + '\t' + line.comment);
+			result.push('\t' + line.comment);
 		}
 		// Code line with possible inline comment
 		else if (line.code) {
-			const codeLine = extraIndent + '\t' + line.code;
+			const codeLine = '\t' + line.code;
 			if (line.comment) {
-				const padding = ' '.repeat(Math.max(1, commentColumn - codeLine.length + extraIndent.length));
+				const padding = ' '.repeat(Math.max(1, commentColumn - codeLine.length));
 				result.push(codeLine + padding + line.comment);
 			} else {
 				result.push(codeLine);
