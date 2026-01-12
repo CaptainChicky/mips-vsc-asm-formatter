@@ -12,13 +12,13 @@
 .data
 # comment inside is still not indented by default
     #! you can override indentation
-	message:        .asciiz "Factorial: ;; "
-	LabelVeryLong:  .word 5
-	LabelShort:     .word 10
-	AnotherLabel:   .asciiz "This is a string #;.,\"f"
-	Ascii:          .ascii "Unterminated string"
-	Message:        .halfword 'A'
-	LabelMed:       .word 20
+	message:        .asciiz "Factorial: ;; " # these comments are not aligned
+	LabelVeryLong:  .word 5 # these comments are not aligned
+	LabelShort:     .word 10 # these comments are not aligned
+	AnotherLabel:   .asciiz "This is a string #;.,\"f" # these comments are not aligned
+	Ascii:          .ascii "Unterminated string" # these comments are not aligned
+	Message:        .halfword 'A' # these comments are not aligned
+	LabelMed:       .word 20 # these comments are not aligned
 
 # comment inside is still not indented by default
     #! standalone directives are indented with 1 tab (.eqv, .include etc)
