@@ -465,6 +465,12 @@ function format(text) {
 		if (isCommentOnly(line.original)) {
 			// If it's a preserve-indent comment (#!), output as-is with original indentation
 			if (isPreserveIndentComment(line.original)) {
+				// Flush any pending function first
+				if (currentFunction !== null) {
+					result.push(...formatFunction(functionLines));
+					functionLines = [];
+					currentFunction = null;
+				}
 				result.push(line.original);
 				continue;
 			}

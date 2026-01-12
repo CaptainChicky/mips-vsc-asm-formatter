@@ -7,13 +7,14 @@
 .macro lstr %rd, %str
 # comments are formatted normally in a macro as if it were actual code
 .data # inline comments are not changed
+	#! formatting of data the same as normal
 	lstr_message: .asciiz %str
 	MultiLine:
 		.double 0.1, 0.2, 0.3
 		.double 0.4, 0.5, 0.6
 		.double 0.7, 0.8, 0.9
 	.eqv DISPLAY_MODE_FB_ENABLE 1
-	.double 0.1, 0.4, 0.6
+	.double 0.1, 0.4, 0.6 # the .eqv resets indenting
 # comments outside of .text are not indented by default
 
 .text
@@ -22,6 +23,7 @@
 	li $v0, 1
 
 # comment (not indented because before label)
+# code in .text is formatted the same as normal
 base_case:
 	# comment (indented because inside label)
 	li $v0, 1    # inline comment aligned
@@ -54,6 +56,8 @@ _end:
 		.double 0.1, 0.2, 0.3
 		.double 0.4, 0.5, 0.6
 		.double 0.7, 0.8, 0.9
+	.eqv DISPLAY_MODE_FB_ENABLE 1
+	.double 0.1, 0.4, 0.6
 
 .text
 	la %rd, lstr_message
