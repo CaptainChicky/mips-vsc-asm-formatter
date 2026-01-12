@@ -3,7 +3,7 @@
     "publisher": "CaptainChicky",
     "displayName": "MIPS Assembly Language Formatter",
     "description": "Formats MIPS Assembly Code",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "icon": "head.png",
     "keywords": ["vscode", "formatter", "mips", "assembly", "asm"],
     "license": "LICENSE",

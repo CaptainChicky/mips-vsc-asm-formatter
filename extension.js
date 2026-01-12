@@ -337,10 +337,14 @@ function format(text) {
 			}
 			
 			// If in data section and this is a data directive, skip - it'll be handled in the data section handler
-			if (inDataSection && isDataDirective(line.original)) {
+			if (inDataSection && isDataDirective(trimmed)) {
 				// Don't handle here, let it fall through to data section handler
 			} else {
-				// Regular directive - flush function and indent
+				// Regular directive (including standalone directives in data sections)
+				// End multi-line data block if we're in one
+				inMultiLineData = false;
+				
+				// Flush function and indent
 				if (currentFunction !== null) {
 					result.push(...formatFunction(functionLines));
 					functionLines = [];
@@ -404,12 +408,12 @@ function format(text) {
 				continue;
 			}
 			
-			// Check if this is multi-line data continuation or standalone directive
-			const isDataDir = isDataDirective(line.original);
-			const isStandaloneDir = isStandaloneDirective(line.original);
+			// Check what type of line this is - use trimmed for all checks
+			const isDataDir = isDataDirective(trimmed);
+			const isStandaloneDir = isStandaloneDirective(trimmed);
 			const isStringOrValue = !trimmed.startsWith('.') && trimmed.length > 0;
 			
-			// Standalone directives end multi-line data block
+			// Standalone directives END multi-line data block (like comments do)
 			if (isStandaloneDir) {
 				inMultiLineData = false;
 				result.push('\t' + trimmed + (line.comment ? ' ' + line.comment : ''));

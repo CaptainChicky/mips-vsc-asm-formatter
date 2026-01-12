@@ -1,4 +1,8 @@
 # Change Log
+
+## v1.2.1
+- Fixed: Multi-line data blocks now properly end when encountering standalone directives (.eqv, etc.)
+
 ## v1.2.0
 - Added: Macro support - macros are formatted as text templates without extra indentation
 - Added: Multi-line data declarations with empty labels now properly double-indent continuation lines

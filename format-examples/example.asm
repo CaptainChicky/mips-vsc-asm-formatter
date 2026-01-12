@@ -85,7 +85,6 @@
 		0.1, 0.2, 0.3
 	.eqv DISPLAY 1
 	.double 0.3, 0.5, 0.1
-# Standalone directive after multi-line data
 	.byte 123 593 944
 
 # ----------------------------------------------------------------------------
