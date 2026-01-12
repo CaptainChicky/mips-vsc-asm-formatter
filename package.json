@@ -11,21 +11,16 @@
         "Formatters"
     ],
     "activationEvents": [
+        "onLanguage:mips",
         "onLanguage:asm"
     ],
     "main": "./extension.js",
     "contributes": {
         "languages": [
             {
-                "id": "asm",
-                "extensions": [
-                    ".asm",
-                    ".s"
-                ],
-                "aliases": [
-                    "Assembly",
-                    "asm"
-                ]
+                "id": "mips",
+                "extensions": [".asm", ".s"],
+                "aliases": ["MIPS", "MIPS Assembly", "Assembly", "asm"]
             }
         ]
     },
