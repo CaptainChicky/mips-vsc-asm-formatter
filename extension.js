@@ -11,13 +11,13 @@ function activate(context) {
 		['asm', 'mips', 'mips-asm', 'assembly'], 
 		{
 			provideDocumentFormattingEdits(document) {
-			const firstLine = document.lineAt(0);
-			const lastLine = document.lineAt(document.lineCount - 1);
-			const textRange = new vscode.Range(firstLine.range.start, lastLine.range.end);
-			
-			const formattedText = format(document.getText());
-			
-			return [vscode.TextEdit.replace(textRange, formattedText)];
+				const firstLine = document.lineAt(0);
+				const lastLine = document.lineAt(document.lineCount - 1);
+				const textRange = new vscode.Range(firstLine.range.start, lastLine.range.end);
+				
+				const formattedText = format(document.getText());
+				
+				return [vscode.TextEdit.replace(textRange, formattedText)];
 			}
 		}
 	);
@@ -41,7 +41,7 @@ function isLabel(line) {
 
 function isSectionDirective(line) {
 	const trimmed = line.trim();
-	// Only .text and .data should be unindented
+	// .text and .data can have addresses after them like ".data 0xFFFF0000"
 	return trimmed === '.text' || trimmed === '.data' || 
 	       trimmed.startsWith('.text ') || trimmed.startsWith('.data ');
 }
@@ -51,48 +51,44 @@ function isCommentOnly(line) {
 	return trimmed.startsWith('#');
 }
 
-function splitCodeAndComment(line) {
-	// FIRST extract strings to avoid treating # inside strings as comments
-	const { processed, strings } = extractStrings(line);
-	
-	// NOW find the # in the processed line (without strings)
-	const hashPos = processed.indexOf('#');
-	if (hashPos === -1) {
-		// No comment, restore strings to the whole line
-		return { code: restoreStrings(processed, strings), comment: '' };
-	}
-	
-	// Split and restore strings to each part
-	const codePart = processed.substring(0, hashPos);
-	const commentPart = processed.substring(hashPos);
-	
-	return {
-		code: restoreStrings(codePart, strings),
-		comment: restoreStrings(commentPart, strings)
-	};
+function isStandaloneDirective(line) {
+	// Directives that stand alone and aren't part of data declarations
+	const trimmed = line.trim();
+	return trimmed.startsWith('.eqv ') || trimmed.startsWith('.equ ') ||
+	       trimmed.startsWith('.macro ') || trimmed.startsWith('.include ') ||
+	       trimmed.startsWith('.globl ') || trimmed.startsWith('.global ') ||
+	       trimmed.startsWith('.extern ') || trimmed.startsWith('.section ');
+}
+
+function isDataDirective(line) {
+	// Data directives that are part of variable declarations
+	const trimmed = line.trim();
+	return trimmed.startsWith('.word ') || trimmed.startsWith('.byte ') ||
+	       trimmed.startsWith('.half ') || trimmed.startsWith('.halfword ') ||
+	       trimmed.startsWith('.double ') || trimmed.startsWith('.float ') ||
+	       trimmed.startsWith('.ascii ') || trimmed.startsWith('.asciiz ') ||
+	       trimmed.startsWith('.space ') || trimmed.startsWith('.align ');
 }
 
 function extractStrings(line) {
 	// Extract all strings (both " and ') and replace with placeholders
 	const strings = [];
-	let result = line;
 	let stringIndex = 0;
 	
-	// Handle double quotes
 	let inString = false;
 	let currentQuote = null;
 	let processed = '';
 	let currentString = '';
 	
-	for (let i = 0; i < result.length; i++) {
-		const char = result[i];
+	for (let i = 0; i < line.length; i++) {
+		const char = line[i];
 		
 		if (!inString && (char === '"' || char === "'")) {
 			// Start of string
 			inString = true;
 			currentQuote = char;
 			currentString = char;
-		} else if (inString && char === currentQuote && result[i-1] !== '\\') {
+		} else if (inString && char === currentQuote && line[i-1] !== '\\') {
 			// End of string (not escaped)
 			currentString += char;
 			const placeholder = `__STRING_${stringIndex}__`;
@@ -128,36 +124,79 @@ function restoreStrings(line, strings) {
 	return result;
 }
 
-function isInDataSection(lines, currentIndex) {
-	// Look backwards to find if we're in a .data section
-	for (let i = currentIndex; i >= 0; i--) {
-		const trimmed = lines[i].trim();
-		if (trimmed.startsWith('.text')) return false;
-		if (trimmed.startsWith('.data')) return true;
+function splitCodeAndComment(line) {
+	// FIRST extract strings to avoid treating # inside strings as comments
+	const { processed, strings } = extractStrings(line);
+	
+	// NOW find the # in the processed line (without strings)
+	const hashPos = processed.indexOf('#');
+	if (hashPos === -1) {
+		// No comment, restore strings to the whole line
+		return { code: restoreStrings(processed, strings), comment: '' };
 	}
-	return false;
+	
+	// Split and restore strings to each part
+	const codePart = processed.substring(0, hashPos);
+	const commentPart = processed.substring(hashPos);
+	
+	return {
+		code: restoreStrings(codePart, strings),
+		comment: restoreStrings(commentPart, strings)
+	};
 }
 
-function isInFunction(lines, currentIndex) {
-	// Look backwards to find if we're after a label (function)
-	for (let i = currentIndex - 1; i >= 0; i--) {
-		const trimmed = lines[i].trim();
-		if (trimmed.startsWith('.text') || trimmed.startsWith('.data')) return false;
-		if (isLabel(lines[i])) return true;
+function findNextNonCommentLine(lines, startIndex) {
+	// Look ahead to find the next non-comment, non-empty line
+	for (let i = startIndex + 1; i < lines.length; i++) {
+		const trimmed = lines[i].original.trim();
+		if (trimmed && !trimmed.startsWith('#')) {
+			return lines[i];
+		}
 	}
-	return false;
+	return null;
 }
 
 function format(text) {
 	const code = text.trim();
 	let lines = code.split("\n");
 	
-	// First pass: normalize commas and basic cleanup, but DON'T touch comments or strings
+	// Check for format disable regions
+	let formatDisabled = false;
+	let disabledRegions = [];
 	for (let i = 0; i < lines.length; i++) {
-		const parts = splitCodeAndComment(lines[i]); // This now handles strings properly
+		const trimmed = lines[i].trim();
+		if (trimmed === '# DO NOT FORMAT START' || trimmed === '#DO NOT FORMAT START') {
+			formatDisabled = true;
+			disabledRegions.push({ start: i, end: -1 });
+		} else if (trimmed === '# DO NOT FORMAT END' || trimmed === '#DO NOT FORMAT END') {
+			if (formatDisabled && disabledRegions.length > 0) {
+				disabledRegions[disabledRegions.length - 1].end = i;
+			}
+			formatDisabled = false;
+		}
+	}
+	
+	// First pass: split into code and comments, normalize code but preserve strings
+	for (let i = 0; i < lines.length; i++) {
+		// Check if this line is in a disabled region
+		let inDisabledRegion = false;
+		for (let region of disabledRegions) {
+			if (i >= region.start && (region.end === -1 || i <= region.end)) {
+				inDisabledRegion = true;
+				break;
+			}
+		}
+		
+		if (inDisabledRegion) {
+			// Preserve the line exactly as-is
+			lines[i] = { original: lines[i], code: lines[i], comment: '', disabled: true };
+			continue;
+		}
+		
+		const parts = splitCodeAndComment(lines[i]);
 		let codePart = parts.code.trim();
 		
-		// Extract strings again for processing (they're already restored but we need to protect them)
+		// Extract strings again for processing
 		const { processed, strings } = extractStrings(codePart);
 		
 		// Process only the code outside of strings
@@ -170,89 +209,176 @@ function format(text) {
 			codePart = restoreStrings(processedCode, strings);
 		}
 		
-		lines[i] = { original: lines[i], code: codePart, comment: parts.comment.trim() };
+		lines[i] = { original: lines[i], code: codePart, comment: parts.comment.trim(), disabled: false };
 	}
 	
-	// Find .data section and calculate alignment for data declarations
-	let dataStartIndex = -1;
-	let dataEndIndex = -1;
+	// Find all .data sections and calculate alignment for each
+	let dataSections = [];
+	let currentDataStart = -1;
+	
 	for (let i = 0; i < lines.length; i++) {
-		if (lines[i].code.startsWith('.data')) {
-			dataStartIndex = i;
-		} else if (dataStartIndex !== -1 && lines[i].code.startsWith('.text')) {
-			dataEndIndex = i;
-			break;
-		}
-	}
-	if (dataStartIndex !== -1 && dataEndIndex === -1) {
-		dataEndIndex = lines.length;
-	}
-	
-	// Calculate max label length in .data section
-	let maxDataLabelLength = 0;
-	if (dataStartIndex !== -1) {
-		for (let i = dataStartIndex + 1; i < dataEndIndex; i++) {
-			const line = lines[i];
-			if (line.code && line.code.includes(':')) {
-				const colonPos = line.code.indexOf(':');
-				maxDataLabelLength = Math.max(maxDataLabelLength, colonPos);
+		const trimmed = lines[i].code.trim();
+		if (trimmed.startsWith('.data')) {
+			if (currentDataStart !== -1) {
+				// End previous data section
+				dataSections.push({ start: currentDataStart, end: i });
+			}
+			currentDataStart = i;
+		} else if (trimmed.startsWith('.text')) {
+			if (currentDataStart !== -1) {
+				// End data section
+				dataSections.push({ start: currentDataStart, end: i });
+				currentDataStart = -1;
 			}
 		}
 	}
+	// Handle data section at end of file
+	if (currentDataStart !== -1) {
+		dataSections.push({ start: currentDataStart, end: lines.length });
+	}
 	
-	// Process each section separately
+	// Calculate max label length for each data section
+	for (let section of dataSections) {
+		let maxLabelLength = 0;
+		for (let i = section.start + 1; i < section.end; i++) {
+			const line = lines[i];
+			const trimmed = line.code.trim();
+			// Skip standalone directives, comments, and empty lines
+			if (isStandaloneDirective(line.original) || isCommentOnly(line.original) || !trimmed) {
+				continue;
+			}
+			if (trimmed.includes(':')) {
+				const colonPos = trimmed.indexOf(':');
+				maxLabelLength = Math.max(maxLabelLength, colonPos);
+			}
+		}
+		section.maxLabelLength = maxLabelLength;
+	}
+	
+	// Process each line
 	let currentFunction = null;
 	let functionLines = [];
 	let result = [];
+	let inMacro = false;
+	let macroIndent = '';
 	
 	for (let i = 0; i < lines.length; i++) {
 		const line = lines[i];
+		const trimmed = line.code.trim();
 		
-		// Handle directives (.text, .data)
-		if (isSectionDirective(line.original)) {
-			// Flush any pending function
+		// If line is in a disabled region, output as-is
+		if (line.disabled) {
+			// Flush any pending function first
 			if (currentFunction !== null) {
-				result.push(...formatFunction(functionLines));
+				result.push(...formatFunction(functionLines, inMacro ? '\t' : ''));
 				functionLines = [];
 				currentFunction = null;
 			}
-			result.push(line.code + (line.comment ? ' ' + line.comment : ''));
+			result.push(line.original);
+			continue;
+		}
+		
+		// Handle macro start
+		if (trimmed.startsWith('.macro ')) {
+			// Flush any pending function
+			if (currentFunction !== null) {
+				result.push(...formatFunction(functionLines, ''));
+				functionLines = [];
+				currentFunction = null;
+			}
+			inMacro = true;
+			macroIndent = '';
+			result.push(trimmed + (line.comment ? ' ' + line.comment : ''));
+			continue;
+		}
+		
+		// Handle macro end
+		if (trimmed === '.end_macro') {
+			inMacro = false;
+			macroIndent = '';
+			result.push(trimmed + (line.comment ? ' ' + line.comment : ''));
+			continue;
+		}
+		
+		// If inside macro, add extra tab to everything
+		const extraIndent = inMacro ? '\t' : '';
+		
+		// Handle section directives (.text, .data)
+		if (isSectionDirective(line.original)) {
+			// Flush any pending function
+			if (currentFunction !== null) {
+				result.push(...formatFunction(functionLines, extraIndent));
+				functionLines = [];
+				currentFunction = null;
+			}
+			result.push(extraIndent + trimmed + (line.comment ? ' ' + line.comment : ''));
 			continue;
 		}
 		
 		// Handle other directives (.globl, .global, .extern, .section, etc.) - indent them
-		if (line.code.trim().startsWith('.')) {
+		if (trimmed.startsWith('.') && !trimmed.includes(':')) {
 			// Flush any pending function
 			if (currentFunction !== null) {
-				result.push(...formatFunction(functionLines));
+				result.push(...formatFunction(functionLines, extraIndent));
 				functionLines = [];
 				currentFunction = null;
 			}
-			result.push('\t' + line.code + (line.comment ? ' ' + line.comment : ''));
+			result.push(extraIndent + '\t' + trimmed + (line.comment ? ' ' + line.comment : ''));
 			continue;
 		}
 		
-		// Handle .data section variables
-		if (dataStartIndex !== -1 && i > dataStartIndex && i < dataEndIndex) {
-			const trimmed = line.code.trim();
+		// Check if we're in a data section
+		let inDataSection = false;
+		let dataSection = null;
+		for (let section of dataSections) {
+			if (i > section.start && i < section.end) {
+				inDataSection = true;
+				dataSection = section;
+				break;
+			}
+		}
+		
+		// Handle .data section
+		if (inDataSection) {
+			// Comment-only line in .data section
+			if (isCommentOnly(line.original)) {
+				result.push(extraIndent + line.comment);
+				continue;
+			}
 			
-			// Check if this is a continuation line (starts with a string or directive on its own)
-			const isMultilineData = !trimmed.includes(':') && !trimmed.startsWith('.') && trimmed.length > 0;
+			// Empty line
+			if (!trimmed && !line.comment) {
+				result.push('');
+				continue;
+			}
 			
-			if (line.code.includes(':')) {
-				const colonPos = line.code.indexOf(':');
-				const label = line.code.substring(0, colonPos + 1);
-				const rest = line.code.substring(colonPos + 1).trim();
-				const spaces = ' '.repeat(maxDataLabelLength - colonPos + 1);
-				result.push(label + spaces + rest + (line.comment ? ' ' + line.comment : ''));
-			} else if (isCommentOnly(line.original)) {
-				// Comment-only line in .data section (not indented)
-				result.push(line.comment);
+			// Check if this is a multi-line data continuation
+			// It's multi-line if: has content, no colon, and either is a data directive or a string/value
+			const isMultilineData = trimmed.length > 0 && 
+			                       !trimmed.includes(':') && 
+			                       (isDataDirective(line.original) || 
+			                        (!trimmed.startsWith('.') && !isStandaloneDirective(line.original)));
+			
+			// Data declaration with label
+			if (trimmed.includes(':')) {
+				const colonPos = trimmed.indexOf(':');
+				const label = trimmed.substring(0, colonPos);
+				const rest = trimmed.substring(colonPos + 1).trim();
+				
+				if (rest) {
+					// Label with data on same line - align the data part
+					const spaces = ' '.repeat(dataSection.maxLabelLength - label.length + 1);
+					result.push(extraIndent + '\t' + label + ':' + spaces + rest + (line.comment ? ' ' + line.comment : ''));
+				} else {
+					// Label only, data on next lines
+					result.push(extraIndent + '\t' + label + ':');
+				}
 			} else if (isMultilineData) {
-				// Multi-line data continuation (indent with tab)
-				result.push('\t' + trimmed + (line.comment ? ' ' + line.comment : ''));
+				// Multi-line data continuation (double indent)
+				result.push(extraIndent + '\t\t' + trimmed + (line.comment ? ' ' + line.comment : ''));
 			} else {
-				result.push(line.code + (line.comment ? ' ' + line.comment : ''));
+				// Other lines (shouldn't normally happen)
+				result.push(extraIndent + '\t' + trimmed + (line.comment ? ' ' + line.comment : ''));
 			}
 			continue;
 		}
@@ -261,17 +387,47 @@ function format(text) {
 		if (isLabel(line.original)) {
 			// Flush previous function if exists
 			if (currentFunction !== null) {
-				result.push(...formatFunction(functionLines));
+				result.push(...formatFunction(functionLines, extraIndent));
 				functionLines = [];
 			}
-			currentFunction = line.code;
-			result.push(line.code + (line.comment ? ' ' + line.comment : ''));
+			currentFunction = trimmed;
+			result.push(extraIndent + trimmed + (line.comment ? ' ' + line.comment : ''));
 			continue;
 		}
 		
-		// Handle comment-only lines outside functions
-		if (isCommentOnly(line.original) && currentFunction === null) {
-			result.push(line.comment);
+		// Handle comment-only lines - always look ahead
+		if (isCommentOnly(line.original)) {
+			// Look ahead to see if next non-comment line is a label
+			const nextLine = findNextNonCommentLine(lines, i);
+			if (nextLine && isLabel(nextLine.original)) {
+				// This comment is right before a function, don't indent
+				// If we're in a function, flush it first
+				if (currentFunction !== null) {
+					result.push(...formatFunction(functionLines, extraIndent));
+					functionLines = [];
+					currentFunction = null;
+				}
+				result.push(extraIndent + line.comment);
+			} else {
+				// Not before a function
+				if (currentFunction !== null) {
+					// Inside a function, accumulate to be indented
+					functionLines.push(line);
+				} else {
+					// Outside a function, don't indent
+					result.push(extraIndent + line.comment);
+				}
+			}
+			continue;
+		}
+		
+		// Empty line
+		if (!trimmed && !line.comment) {
+			if (currentFunction !== null) {
+				functionLines.push(line);
+			} else {
+				result.push('');
+			}
 			continue;
 		}
 		
@@ -280,19 +436,19 @@ function format(text) {
 			functionLines.push(line);
 		} else {
 			// Lines outside any function or section
-			result.push(line.code + (line.comment ? ' ' + line.comment : ''));
+			result.push(extraIndent + trimmed + (line.comment ? ' ' + line.comment : ''));
 		}
 	}
 	
 	// Flush any remaining function
 	if (currentFunction !== null) {
-		result.push(...formatFunction(functionLines));
+		result.push(...formatFunction(functionLines, inMacro ? '\t' : ''));
 	}
 	
 	return result.join('\n') + '\n';
 }
 
-function formatFunction(lines) {
+function formatFunction(lines, extraIndent = '') {
 	const result = [];
 	
 	// Find max code length for inline comment alignment
@@ -310,13 +466,13 @@ function formatFunction(lines) {
 	for (const line of lines) {
 		// Comment-only line: indent with one tab
 		if (isCommentOnly(line.original)) {
-			result.push('\t' + line.comment);
+			result.push(extraIndent + '\t' + line.comment);
 		}
 		// Code line with possible inline comment
 		else if (line.code) {
-			const codeLine = '\t' + line.code;
+			const codeLine = extraIndent + '\t' + line.code;
 			if (line.comment) {
-				const padding = ' '.repeat(Math.max(1, commentColumn - codeLine.length));
+				const padding = ' '.repeat(Math.max(1, commentColumn - codeLine.length + extraIndent.length));
 				result.push(codeLine + padding + line.comment);
 			} else {
 				result.push(codeLine);
