@@ -1,5 +1,9 @@
 # Change Log
 
+## v1.2.2
+ - Fixed: Preserve-indent comments (#!) now maintain function context (code after #! comments continues to be indented as part of the same function)
+ - Fixed: Preserve-indent comments (#!) now output in their original position instead of being moved to after function completion.
+
 ## v1.2.1
 - Fixed: Multi-line data blocks now properly end when encountering standalone directives (.eqv, etc.)
 

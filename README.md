@@ -18,22 +18,16 @@ To keep custom formatting, wrap the block of code as follows
 [code]
 # DO NOT FORMAT END
 ```
-
 To keep custom comment indentation, use the special directive
 ```
     #! comment indentation is kept as-is
 ```
-
-See `/format-examples/` for examples of formatting of hopefully comprehensive MIPS code. The MIPS code many times will be nonsensical and do nothing. It is just for display of formatting abilities.
+See `/format-examples/` for examples of formatting of hopefully comprehensive MIPS code. The MIPS code many times will be nonsensical and do nothing. In particular, `/format-examples/data.asm`, `/format-examples/macros.asm`, and `/format-examples/text.asm` are all bogus nonsensical code only doing showcasing. `/format-examples/factorial.asm` and `/format-examples/primes.asm` are legit programs though I got from AngaBlue's repository (https://github.com/AngaBlue/asm-formatter).
 
 *This extension **does not do syntax highlighting** or linting. It assumes your code is correct. You can use dollar signs or not use dollar signs for registers, the formatter doesn't care.*
 
 ## Compiling
-To compile and test, run
-```
-vsce package
-```
-after installing the neccesary packages that are like vscode, vsce and stuff (I forget which ones exactly, but it's not that hard to figure out yourself). You probably also need to `npm install` or something idk.
+To compile and test, run `vsce package` after installing the neccesary packages that are like vscode, vsce and stuff (I forget which ones exactly, but it's not that hard to figure out yourself). You probably also need to `npm install` or something idk.
 
 The `/.vscode/launch.json` apparently allows you to test the extension in a new window by doing `f5`, so might be useful, but when I was testing this I literally just compiled, installed the extension, and tested it that way.
 

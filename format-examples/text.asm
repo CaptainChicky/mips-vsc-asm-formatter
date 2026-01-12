@@ -110,20 +110,20 @@ main:
 	li $a0, 5
 	jal factorial
 
-	move $a0, $v0    
-	li $v0, -1       
+	move $a0, $v0
+	li $v0, -1
 	syscall
 
 	li $v0, 10
-	syscall        
-	
+	syscall
+
 factorial:
 	beq $a0, $zero, base_case
-	sub $a0, $a0, 1    
-	jal factorial             
-	add $a0, $a0, 1          
-	mul $v0, $v0, $a0         
-	jr $ra                      
+	sub $a0, $a0, 1
+	jal factorial
+	add $a0, $a0, 1
+	mul $v0, $v0, $a0
+	jr $ra
 
 # DO NOT FORMAT START
 	li s0, 0
@@ -139,7 +139,7 @@ jr ra
 # DO NOT FORMAT END
 
 li s0, 0
-_loop: 
+_loop:
 	la a0, block_palettes
 	mul t0, s0, BLOCK_PALETTE_SIZE
 	jal display_load_palette
@@ -151,14 +151,14 @@ _loop:
 
 main_loop:
 #! This comment stays at column 0 even though it's in a function
-	addi $s0, $s0, 1          
-	move $a0, $s0             
+	addi $s0, $s0, 1
+	move $a0, $s0
 	jal test_prime
-	beq $v0, $zero, main_loop   
+	beq $v0, $zero, main_loop
 
-	sw $s0, 0($s1)              
-	addi $s1, $s1, 4        
-	bne $s1, $s2, main_loop  
+	sw $s0, 0($s1)
+	addi $s1, $s1, 4
+	bne $s1, $s2, main_loop
 
-	li $v0, 10                   
+	li $v0, 10
 	syscall
