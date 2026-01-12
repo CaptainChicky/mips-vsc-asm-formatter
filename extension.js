@@ -295,6 +295,7 @@ function format(text) {
 				currentFunction = null;
 			}
 			inMacro = true;
+			inMultiLineData = false; // Reset multi-line data state
 			result.push(trimmed + (line.comment ? ' ' + line.comment : ''));
 			continue;
 		}
@@ -308,6 +309,7 @@ function format(text) {
 				currentFunction = null;
 			}
 			inMacro = false;
+			inMultiLineData = false; // Reset multi-line data state
 			result.push(trimmed + (line.comment ? ' ' + line.comment : ''));
 			continue;
 		}
@@ -409,14 +411,14 @@ function format(text) {
 			const isStandaloneDir = isStandaloneDirective(line.original);
 			const isStringOrValue = !trimmed.startsWith('.') && trimmed.length > 0;
 			
-			// If we're in a multi-line data block, continue double-indenting data directives/strings
-			if (inMultiLineData && (isDataDir || isStringOrValue)) {
-				result.push('\t\t' + trimmed + (line.comment ? ' ' + line.comment : ''));
-			}
-			// Standalone directives end multi-line data block
-			else if (isStandaloneDir) {
+			// Standalone directives always end multi-line data block
+			if (isStandaloneDir) {
 				inMultiLineData = false;
 				result.push('\t' + trimmed + (line.comment ? ' ' + line.comment : ''));
+			}
+			// If we're in a multi-line data block, continue double-indenting data directives/strings
+			else if (inMultiLineData && (isDataDir || isStringOrValue)) {
+				result.push('\t\t' + trimmed + (line.comment ? ' ' + line.comment : ''));
 			}
 			// Data directive - check if it has data after it
 			else if (isDataDir) {

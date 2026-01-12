@@ -19,10 +19,12 @@ To keep custom formatting, wrap the block of code as follows
 # DO NOT FORMAT END
 ```
 
-TO keep custom comment indentation, use the special directive
+To keep custom comment indentation, use the special directive
 ```
     #! comment indentation is kept as-is
 ```
+
+See `/format-examples/` for examples of formatting of hopefully comprehensive MIPS code. The MIPS code many times will be nonsensical and do nothing. It is just for display of formatting abilities.
 
 *This extension **does not do syntax highlighting** or linting. It assumes your code is correct. You can use dollar signs or not use dollar signs for registers, the formatter doesn't care.*
 
