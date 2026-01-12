@@ -65,6 +65,7 @@ function isDataDirective(line) {
 	const trimmed = line.trim();
 	return trimmed.startsWith('.word ') || trimmed.startsWith('.byte ') ||
 	       trimmed.startsWith('.half ') || trimmed.startsWith('.halfword ') ||
+	       trimmed.startsWith('.hword ') || trimmed.startsWith('.dword ') ||
 	       trimmed.startsWith('.double ') || trimmed.startsWith('.float ') ||
 	       trimmed.startsWith('.ascii ') || trimmed.startsWith('.asciiz ') ||
 	       trimmed.startsWith('.space ') || trimmed.startsWith('.align ');
@@ -261,6 +262,7 @@ function format(text) {
 	let result = [];
 	let inMacro = false;
 	let inTextSection = false; // Track if we're in a .text section
+	let inMultiLineData = false; // Track if we're in a multi-line data block
 	
 	for (let i = 0; i < lines.length; i++) {
 		const line = lines[i];
@@ -356,35 +358,19 @@ function format(text) {
 		
 		// Handle .data section
 		if (inDataSection) {
-			// Comment-only line in .data section
+			// Comment-only line in .data section - ends multi-line data block
 			if (isCommentOnly(line.original)) {
+				inMultiLineData = false;
 				result.push(line.comment);
 				continue;
 			}
 			
-			// Empty line
+			// Empty line ends multi-line data block
 			if (!trimmed && !line.comment) {
+				inMultiLineData = false;
 				result.push('');
 				continue;
 			}
-			
-			// Check if previous line was a label with no data (just "label:")
-			let prevLineWasEmptyLabel = false;
-			if (i > 0) {
-				const prevLine = lines[i - 1];
-				const prevTrimmed = prevLine.code.trim();
-				if (prevTrimmed.endsWith(':') && prevTrimmed.indexOf(':') === prevTrimmed.length - 1) {
-					// Previous line was just a label with nothing after the colon
-					prevLineWasEmptyLabel = true;
-				}
-			}
-			
-			// Check if this is a multi-line data continuation
-			// It's multi-line if: has content, no colon, and either is a data directive or a string/value
-			const isMultilineData = trimmed.length > 0 && 
-			                       !trimmed.includes(':') && 
-			                       (isDataDirective(line.original) || 
-			                        (!trimmed.startsWith('.') && !isStandaloneDirective(line.original)));
 			
 			// Data declaration with label
 			if (trimmed.includes(':')) {
@@ -392,19 +378,47 @@ function format(text) {
 				const label = trimmed.substring(0, colonPos);
 				const rest = trimmed.substring(colonPos + 1).trim();
 				
+				// End any previous multi-line data block
+				inMultiLineData = false;
+				
 				if (rest) {
 					// Label with data on same line - align the data part
 					const spaces = ' '.repeat(dataSection.maxLabelLength - label.length + 1);
 					result.push('\t' + label + ':' + spaces + rest + (line.comment ? ' ' + line.comment : ''));
 				} else {
-					// Label only, data on next lines
+					// Label only, data on next lines - start multi-line data block
 					result.push('\t' + label + ':');
+					inMultiLineData = true;
 				}
-			} else if (isMultilineData) {
-				// Multi-line data continuation (double indent)
+				continue;
+			}
+			
+			// Check if this is multi-line data continuation or standalone directive
+			const isDataDir = isDataDirective(line.original);
+			const isStandaloneDir = isStandaloneDirective(line.original);
+			const isStringOrValue = !trimmed.startsWith('.') && trimmed.length > 0;
+			
+			// If we're in a multi-line data block, continue double-indenting data directives/strings
+			if (inMultiLineData && (isDataDir || isStringOrValue)) {
 				result.push('\t\t' + trimmed + (line.comment ? ' ' + line.comment : ''));
-			} else {
-				// Other lines (shouldn't normally happen)
+			}
+			// Standalone directives end multi-line data block
+			else if (isStandaloneDir) {
+				inMultiLineData = false;
+				result.push('\t' + trimmed + (line.comment ? ' ' + line.comment : ''));
+			}
+			// Data directive not in multi-line block - single indent and end block
+			else if (isDataDir) {
+				inMultiLineData = false;
+				result.push('\t' + trimmed + (line.comment ? ' ' + line.comment : ''));
+			}
+			// String/value not in multi-line block - double indent (continuation of something)
+			else if (isStringOrValue) {
+				result.push('\t\t' + trimmed + (line.comment ? ' ' + line.comment : ''));
+			}
+			// Other lines
+			else {
+				inMultiLineData = false;
 				result.push('\t' + trimmed + (line.comment ? ' ' + line.comment : ''));
 			}
 			continue;
