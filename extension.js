@@ -260,6 +260,7 @@ function format(text) {
 	let functionLines = [];
 	let result = [];
 	let inMacro = false;
+	let inTextSection = false; // Track if we're in a .text section
 	
 	for (let i = 0; i < lines.length; i++) {
 		const line = lines[i];
@@ -316,15 +317,30 @@ function format(text) {
 		}
 		
 		// Handle other directives (.globl, .global, .extern, .section, etc.) - indent them
+		// BUT skip data directives when in a data section (they're handled later)
 		if (trimmed.startsWith('.') && !trimmed.includes(':')) {
-			// Flush any pending function
-			if (currentFunction !== null) {
-				result.push(...formatFunction(functionLines));
-				functionLines = [];
-				currentFunction = null;
+			// Check if we're in a data section
+			let inDataSection = false;
+			for (let section of dataSections) {
+				if (i > section.start && i < section.end) {
+					inDataSection = true;
+					break;
+				}
 			}
-			result.push('\t' + trimmed + (line.comment ? ' ' + line.comment : ''));
-			continue;
+			
+			// If in data section and this is a data directive, skip - it'll be handled in the data section handler
+			if (inDataSection && isDataDirective(line.original)) {
+				// Don't handle here, let it fall through to data section handler
+			} else {
+				// Regular directive - flush function and indent
+				if (currentFunction !== null) {
+					result.push(...formatFunction(functionLines));
+					functionLines = [];
+					currentFunction = null;
+				}
+				result.push('\t' + trimmed + (line.comment ? ' ' + line.comment : ''));
+				continue;
+			}
 		}
 		
 		// Check if we're in a data section
@@ -350,6 +366,17 @@ function format(text) {
 			if (!trimmed && !line.comment) {
 				result.push('');
 				continue;
+			}
+			
+			// Check if previous line was a label with no data (just "label:")
+			let prevLineWasEmptyLabel = false;
+			if (i > 0) {
+				const prevLine = lines[i - 1];
+				const prevTrimmed = prevLine.code.trim();
+				if (prevTrimmed.endsWith(':') && prevTrimmed.indexOf(':') === prevTrimmed.length - 1) {
+					// Previous line was just a label with nothing after the colon
+					prevLineWasEmptyLabel = true;
+				}
 			}
 			
 			// Check if this is a multi-line data continuation
@@ -397,10 +424,15 @@ function format(text) {
 		
 		// Handle comment-only lines - always look ahead
 		if (isCommentOnly(line.original)) {
-			// Look ahead to see if next non-comment line is a label
+			// Look ahead to see if next non-comment line is a label or directive
 			const nextLine = findNextNonCommentLine(lines, i);
-			if (nextLine && isLabel(nextLine.original)) {
-				// This comment is right before a function, don't indent
+			const nextTrimmed = nextLine ? nextLine.code.trim() : '';
+			
+			// Don't indent if comment is right before: function label, .data, .text, or other directives
+			if (nextLine && (isLabel(nextLine.original) || 
+			                 isSectionDirective(nextLine.original) ||
+			                 nextTrimmed.startsWith('.'))) {
+				// This comment is right before a special line, don't indent
 				// If we're in a function, flush it first
 				if (currentFunction !== null) {
 					result.push(...formatFunction(functionLines));
@@ -409,13 +441,18 @@ function format(text) {
 				}
 				result.push(line.comment);
 			} else {
-				// Not before a function
+				// Not before a function/directive
 				if (currentFunction !== null) {
 					// Inside a function, accumulate to be indented
 					functionLines.push(line);
 				} else {
-					// Outside a function, don't indent
-					result.push(line.comment);
+					// Outside a function
+					// In macros or .text sections, indent comments like code
+					if (inMacro || inTextSection) {
+						result.push('\t' + line.comment);
+					} else {
+						result.push(line.comment);
+					}
 				}
 			}
 			continue;
@@ -436,7 +473,12 @@ function format(text) {
 			functionLines.push(line);
 		} else {
 			// Lines outside any function or section
-			result.push(trimmed + (line.comment ? ' ' + line.comment : ''));
+			// In macros, indent all code by default (unless it's a label or directive)
+			if (inMacro && trimmed && !isLabel(line.original) && !trimmed.startsWith('.')) {
+				result.push('\t' + trimmed + (line.comment ? ' ' + line.comment : ''));
+			} else {
+				result.push(trimmed + (line.comment ? ' ' + line.comment : ''));
+			}
 		}
 	}
 	
