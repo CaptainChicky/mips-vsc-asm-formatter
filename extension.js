@@ -6,43 +6,24 @@ const vscode = require('vscode');
 function activate(context) {
 	console.log('asmformat is active!');
 
-	let disposable = vscode.commands.registerCommand('asmformat.format', function () {
-		if (updateAsm()) {
-			vscode.window.showInformationMessage('The assembly code has been formatted');
-		} else {
-			vscode.window.showErrorMessage("You can only format .asm files");
+	// Register as a document formatter for .asm files
+	const formatter = vscode.languages.registerDocumentFormattingEditProvider('asm', {
+		provideDocumentFormattingEdits(document) {
+			const firstLine = document.lineAt(0);
+			const lastLine = document.lineAt(document.lineCount - 1);
+			const textRange = new vscode.Range(firstLine.range.start, lastLine.range.end);
+			
+			const formattedText = format(document.getText());
+			
+			return [vscode.TextEdit.replace(textRange, formattedText)];
 		}
 	});
 
-	context.subscriptions.push(disposable);
+	context.subscriptions.push(formatter);
 }
 exports.activate = activate;
 
 function deactivate() { }
-
-function updateAsm() {
-	const { activeTextEditor } = vscode.window;
-
-	if (activeTextEditor) {
-		var fileExt = activeTextEditor.document.fileName.split(".").pop();
-		if (fileExt === "asm") {
-			const { document } = activeTextEditor;
-
-			const content = format(document.getText());
-
-			const firstLine = document.lineAt(0);
-			const lastLine = document.lineAt(document.getText().split("\n").length - 1);
-			const edit = new vscode.WorkspaceEdit();
-			edit.delete(document.uri, new vscode.Range(firstLine.range.start, lastLine.range.end))
-			edit.insert(document.uri, firstLine.range.start, content);
-
-			vscode.workspace.applyEdit(edit);
-			return true;
-		} else {
-			return false;
-		}
-	}
-}
 
 function isLabel(line) {
 	const trimmed = line.trim();
