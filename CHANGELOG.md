@@ -1,5 +1,8 @@
 # Change Log
 
+## v1.2.3
+- Fixed: String literals containing colons (`:`) are no longer incorrectly treated as labels
+
 ## v1.2.2
  - Fixed: Preserve-indent comments (#!) now maintain function context (code after #! comments continues to be indented as part of the same function)
  - Fixed: Preserve-indent comments (#!) now output in their original position instead of being moved to after function completion.

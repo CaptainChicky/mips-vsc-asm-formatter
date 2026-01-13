@@ -30,9 +30,13 @@ function deactivate() { }
 
 function isLabel(line) {
 	const trimmed = line.trim();
-	// Check if line contains a colon (label) before any comment
-	const commentPos = trimmed.indexOf('#');
-	const colonPos = trimmed.indexOf(':');
+	
+	// Extract strings first to avoid treating colons in strings as labels
+	const { processed, strings } = extractStrings(trimmed);
+	
+	// Check if line contains a colon (label) before any comment in the processed line
+	const commentPos = processed.indexOf('#');
+	const colonPos = processed.indexOf(':');
 	
 	if (colonPos === -1) return false;
 	if (commentPos === -1) return true;
