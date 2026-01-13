@@ -1,8 +1,7 @@
 .vscode/**
-.vscode-test/**
 format-examples/**
 .gitignore
-vsc-extension-quickstart.md
+.gitattributes
 **/jsconfig.json
 **/*.map
 **/.eslintrc.json
