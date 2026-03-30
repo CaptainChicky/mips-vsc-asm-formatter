@@ -20,7 +20,7 @@
 	Message:        .halfword 'A' # these comments are not aligned
 	LabelMed:       .word 20 # these comments are not aligned
 	#! edge case tester for escaping quotes
-	msg: 			.asciiz "a,b,c,d,hello     world\\"
+	msg:            .asciiz "a,b,c,d,hello     world\\"
 	.asciiz "very long thing before: colon"
 
 # comment inside is still not indented by default
@@ -81,7 +81,7 @@
 	Ascii:          .ascii "Unterminated string"
 	Message:        .halfword 'A'
 	LabelMed:       .word 20
-	msg1: 			.asciiz "a,b,c,d,hello     world\\"
+	msg1:           .asciiz "a,b,c,d,hello     world\\"
 	.asciiz "very long thing before: colon"
 
 	.eqv DISPLAY_MODE_FB_ENABLE 1
