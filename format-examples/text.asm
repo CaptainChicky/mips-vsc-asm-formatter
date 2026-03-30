@@ -21,7 +21,7 @@ main:
 	li $a0, 5
 	jal factorial
 
-	# Inline comments are aligned 1 space after longest code line
+	# Inline comments are aligned 1 tab after longest code line
 	move $a0, $v0      # test
 	li $v0, -1         # operators like 1-1 1+1 1/2 1*2 are preserved
 	syscall
@@ -32,7 +32,7 @@ main:
 
 # Comment above function (not indented because right above function)
 factorial:
-	beq $a0, $zero, base_case
+	beq $a0, $zero, base_case    # tester on longest
 	sub $a0, $a0, 1              # inline comments aligned
 	jal factorial                # within each function
 	add $a0, $a0, 1              # based on longest line

@@ -32,7 +32,7 @@ function isLabel(line) {
 	const trimmed = line.trim();
 	
 	// Extract strings first to avoid treating colons in strings as labels
-	const { processed, strings } = extractStrings(trimmed);
+	const { processed } = extractStrings(trimmed);
 	
 	// Check if line contains a colon (label) before any comment in the processed line
 	const commentPos = processed.indexOf('#');
@@ -271,7 +271,6 @@ function format(text) {
 	let functionLines = [];
 	let result = [];
 	let inMacro = false;
-	let inTextSection = false; // Track if we're in a .text section
 	let inMultiLineData = false; // Track if we're in a multi-line data block
 	
 	for (let i = 0; i < lines.length; i++) {
@@ -502,8 +501,8 @@ function format(text) {
 					functionLines.push(line);
 				} else {
 					// Outside a function
-					// In macros or .text sections, indent comments like code
-					if (inMacro || inTextSection) {
+					// In macros, indent comments like code
+					if (inMacro) {
 						result.push('\t' + line.comment);
 					} else {
 						result.push(line.comment);
