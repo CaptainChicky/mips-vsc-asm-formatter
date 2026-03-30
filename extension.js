@@ -81,6 +81,18 @@ function isDataDirective(line) {
 		trimmed.startsWith('.space') || trimmed.startsWith('.align');
 }
 
+function isEscaped(line, i) {
+	// Count consecutive backslashes before position i
+	// Even count (0, 2, 4...) = not escaped, odd count = escaped
+	let backslashes = 0;
+	let j = i - 1;
+	while (j >= 0 && line[j] === '\\') {
+		backslashes++;
+		j--;
+	}
+	return backslashes % 2 === 1;
+}
+
 function extractStrings(line) {
 	// Extract all strings (both " and ') and replace with placeholders
 	const strings = [];
@@ -99,7 +111,7 @@ function extractStrings(line) {
 			inString = true;
 			currentQuote = char;
 			currentString = char;
-		} else if (inString && char === currentQuote && line[i - 1] !== '\\') {
+		} else if (inString && char === currentQuote && !isEscaped(line, i)) {
 			// End of string (not escaped)
 			currentString += char;
 			const placeholder = `__STRING_${stringIndex}__`;
@@ -215,7 +227,7 @@ function format(text) {
 			// Normalize commas (add space after comma if not present)
 			let processedCode = processed.replace(/,(\S)/g, ', $1');
 			// Remove multiple spaces
-			processedCode = processedCode.replace(/ +/g, ' ');
+			processedCode = processedCode.replace(/\s+/g, ' ');
 			// Restore the strings
 			codePart = restoreStrings(processedCode, strings);
 		}
@@ -258,8 +270,9 @@ function format(text) {
 			if (isStandaloneDirective(line.original) || isCommentOnly(line.original) || !trimmed) {
 				continue;
 			}
-			if (trimmed.includes(':')) {
-				const colonPos = trimmed.indexOf(':');
+			const { processed: processedTrimmed } = extractStrings(trimmed);
+			if (processedTrimmed.includes(':')) {
+				const colonPos = processedTrimmed.indexOf(':');
 				maxLabelLength = Math.max(maxLabelLength, colonPos);
 			}
 		}
@@ -329,7 +342,8 @@ function format(text) {
 
 		// Handle other directives (.globl, .global, .extern, .section, etc.) - indent them
 		// BUT skip data directives when in a data section (they're handled later)
-		if (trimmed.startsWith('.') && !trimmed.includes(':')) {
+		const { processed: processedDirectiveCheck } = extractStrings(trimmed);
+		if (trimmed.startsWith('.') && !processedDirectiveCheck.includes(':')) {
 			// Check if we're in a data section
 			let inDataSection = false;
 			for (let section of dataSections) {
@@ -391,8 +405,9 @@ function format(text) {
 			}
 
 			// Data declaration with label
-			if (trimmed.includes(':')) {
-				const colonPos = trimmed.indexOf(':');
+			const { processed: processedLine } = extractStrings(trimmed);
+			if (processedLine.includes(':')) {
+				const colonPos = processedLine.indexOf(':');
 				const label = trimmed.substring(0, colonPos);
 				const rest = trimmed.substring(colonPos + 1).trim();
 
