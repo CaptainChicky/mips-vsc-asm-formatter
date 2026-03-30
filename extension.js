@@ -8,15 +8,15 @@ function activate(context) {
 
 	// Register for multiple language IDs
 	const formatter = vscode.languages.registerDocumentFormattingEditProvider(
-		['asm', 'mips', 'mips-asm', 'assembly'], 
+		['asm', 'mips', 'mips-asm', 'assembly'],
 		{
 			provideDocumentFormattingEdits(document) {
 				const firstLine = document.lineAt(0);
 				const lastLine = document.lineAt(document.lineCount - 1);
 				const textRange = new vscode.Range(firstLine.range.start, lastLine.range.end);
-				
+
 				const formattedText = format(document.getText());
-				
+
 				return [vscode.TextEdit.replace(textRange, formattedText)];
 			}
 		}
@@ -30,14 +30,14 @@ function deactivate() { }
 
 function isLabel(line) {
 	const trimmed = line.trim();
-	
+
 	// Extract strings first to avoid treating colons in strings as labels
 	const { processed } = extractStrings(trimmed);
-	
+
 	// Check if line contains a colon (label) before any comment in the processed line
 	const commentPos = processed.indexOf('#');
 	const colonPos = processed.indexOf(':');
-	
+
 	if (colonPos === -1) return false;
 	if (commentPos === -1) return true;
 	return colonPos < commentPos;
@@ -46,8 +46,8 @@ function isLabel(line) {
 function isSectionDirective(line) {
 	const trimmed = line.trim();
 	// .text and .data can have addresses after them like ".data 0xFFFF0000"
-	return trimmed === '.text' || trimmed === '.data' || 
-	       trimmed.startsWith('.text ') || trimmed.startsWith('.data ');
+	return trimmed === '.text' || trimmed === '.data' ||
+		trimmed.startsWith('.text ') || trimmed.startsWith('.data ');
 }
 
 function isCommentOnly(line) {
@@ -65,41 +65,41 @@ function isStandaloneDirective(line) {
 	// Directives that stand alone and aren't part of data declarations
 	const trimmed = line.trim();
 	return trimmed.startsWith('.eqv ') || trimmed.startsWith('.equ ') ||
-	       trimmed.startsWith('.macro ') || trimmed.startsWith('.include ') ||
-	       trimmed.startsWith('.globl ') || trimmed.startsWith('.global ') ||
-	       trimmed.startsWith('.extern ') || trimmed.startsWith('.section ');
+		trimmed.startsWith('.macro ') || trimmed.startsWith('.include ') ||
+		trimmed.startsWith('.globl ') || trimmed.startsWith('.global ') ||
+		trimmed.startsWith('.extern ') || trimmed.startsWith('.section ');
 }
 
 function isDataDirective(line) {
 	// Data directives that are part of variable declarations
 	const trimmed = line.trim();
 	return trimmed.startsWith('.word') || trimmed.startsWith('.byte') ||
-	       trimmed.startsWith('.half') || trimmed.startsWith('.halfword') ||
-	       trimmed.startsWith('.hword') || trimmed.startsWith('.dword') ||
-	       trimmed.startsWith('.double') || trimmed.startsWith('.float') ||
-	       trimmed.startsWith('.ascii') || trimmed.startsWith('.asciiz') ||
-	       trimmed.startsWith('.space') || trimmed.startsWith('.align');
+		trimmed.startsWith('.half') || trimmed.startsWith('.halfword') ||
+		trimmed.startsWith('.hword') || trimmed.startsWith('.dword') ||
+		trimmed.startsWith('.double') || trimmed.startsWith('.float') ||
+		trimmed.startsWith('.ascii') || trimmed.startsWith('.asciiz') ||
+		trimmed.startsWith('.space') || trimmed.startsWith('.align');
 }
 
 function extractStrings(line) {
 	// Extract all strings (both " and ') and replace with placeholders
 	const strings = [];
 	let stringIndex = 0;
-	
+
 	let inString = false;
 	let currentQuote = null;
 	let processed = '';
 	let currentString = '';
-	
+
 	for (let i = 0; i < line.length; i++) {
 		const char = line[i];
-		
+
 		if (!inString && (char === '"' || char === "'")) {
 			// Start of string
 			inString = true;
 			currentQuote = char;
 			currentString = char;
-		} else if (inString && char === currentQuote && line[i-1] !== '\\') {
+		} else if (inString && char === currentQuote && line[i - 1] !== '\\') {
 			// End of string (not escaped)
 			currentString += char;
 			const placeholder = `__STRING_${stringIndex}__`;
@@ -117,12 +117,12 @@ function extractStrings(line) {
 			processed += char;
 		}
 	}
-	
+
 	// If we ended while still in a string, add it anyway
 	if (inString) {
 		processed += currentString;
 	}
-	
+
 	return { processed, strings };
 }
 
@@ -138,18 +138,18 @@ function restoreStrings(line, strings) {
 function splitCodeAndComment(line) {
 	// FIRST extract strings to avoid treating # inside strings as comments
 	const { processed, strings } = extractStrings(line);
-	
+
 	// NOW find the # in the processed line (without strings)
 	const hashPos = processed.indexOf('#');
 	if (hashPos === -1) {
 		// No comment, restore strings to the whole line
 		return { code: restoreStrings(processed, strings), comment: '' };
 	}
-	
+
 	// Split and restore strings to each part
 	const codePart = processed.substring(0, hashPos);
 	const commentPart = processed.substring(hashPos);
-	
+
 	return {
 		code: restoreStrings(codePart, strings),
 		comment: restoreStrings(commentPart, strings)
@@ -170,7 +170,7 @@ function findNextNonCommentLine(lines, startIndex) {
 function format(text) {
 	const code = text.trim();
 	let lines = code.split("\n");
-	
+
 	// Check for format disable regions
 	let formatDisabled = false;
 	let disabledRegions = [];
@@ -186,7 +186,7 @@ function format(text) {
 			formatDisabled = false;
 		}
 	}
-	
+
 	// First pass: split into code and comments, normalize code but preserve strings
 	for (let i = 0; i < lines.length; i++) {
 		// Check if this line is in a disabled region
@@ -197,19 +197,19 @@ function format(text) {
 				break;
 			}
 		}
-		
+
 		if (inDisabledRegion) {
 			// Preserve the line exactly as-is
 			lines[i] = { original: lines[i], code: lines[i], comment: '', disabled: true };
 			continue;
 		}
-		
+
 		const parts = splitCodeAndComment(lines[i]);
 		let codePart = parts.code.trim();
-		
+
 		// Extract strings again for processing
 		const { processed, strings } = extractStrings(codePart);
-		
+
 		// Process only the code outside of strings
 		if (processed) {
 			// Normalize commas (add space after comma if not present)
@@ -219,14 +219,14 @@ function format(text) {
 			// Restore the strings
 			codePart = restoreStrings(processedCode, strings);
 		}
-		
+
 		lines[i] = { original: lines[i], code: codePart, comment: parts.comment.trim(), disabled: false };
 	}
-	
+
 	// Find all .data sections and calculate alignment for each
 	let dataSections = [];
 	let currentDataStart = -1;
-	
+
 	for (let i = 0; i < lines.length; i++) {
 		const trimmed = lines[i].code.trim();
 		if (trimmed.startsWith('.data')) {
@@ -247,7 +247,7 @@ function format(text) {
 	if (currentDataStart !== -1) {
 		dataSections.push({ start: currentDataStart, end: lines.length });
 	}
-	
+
 	// Calculate max label length for each data section
 	for (let section of dataSections) {
 		let maxLabelLength = 0;
@@ -265,18 +265,18 @@ function format(text) {
 		}
 		section.maxLabelLength = maxLabelLength;
 	}
-	
+
 	// Process each line
 	let currentFunction = null;
 	let functionLines = [];
 	let result = [];
 	let inMacro = false;
 	let inMultiLineData = false; // Track if we're in a multi-line data block
-	
+
 	for (let i = 0; i < lines.length; i++) {
 		const line = lines[i];
 		const trimmed = line.code.trim();
-		
+
 		// If line is in a disabled region, output as-is
 		if (line.disabled) {
 			// Flush any pending function first
@@ -288,7 +288,7 @@ function format(text) {
 			result.push(line.original);
 			continue;
 		}
-		
+
 		// Handle macro start
 		if (trimmed.startsWith('.macro ')) {
 			// Flush any pending function
@@ -301,7 +301,7 @@ function format(text) {
 			result.push(trimmed + (line.comment ? ' ' + line.comment : ''));
 			continue;
 		}
-		
+
 		// Handle macro end
 		if (trimmed === '.end_macro') {
 			// Flush any pending function before ending macro
@@ -314,7 +314,7 @@ function format(text) {
 			result.push(trimmed + (line.comment ? ' ' + line.comment : ''));
 			continue;
 		}
-		
+
 		// Handle section directives (.text, .data)
 		if (isSectionDirective(line.original)) {
 			// Flush any pending function
@@ -326,7 +326,7 @@ function format(text) {
 			result.push(trimmed + (line.comment ? ' ' + line.comment : ''));
 			continue;
 		}
-		
+
 		// Handle other directives (.globl, .global, .extern, .section, etc.) - indent them
 		// BUT skip data directives when in a data section (they're handled later)
 		if (trimmed.startsWith('.') && !trimmed.includes(':')) {
@@ -338,7 +338,7 @@ function format(text) {
 					break;
 				}
 			}
-			
+
 			// If in data section and this is a data directive, skip - it'll be handled in the data section handler
 			if (inDataSection && isDataDirective(trimmed)) {
 				// Don't handle here, let it fall through to data section handler
@@ -346,7 +346,7 @@ function format(text) {
 				// Regular directive (including standalone directives in data sections)
 				// End multi-line data block if we're in one
 				inMultiLineData = false;
-				
+
 				// Flush function and indent
 				if (currentFunction !== null) {
 					result.push(...formatFunction(functionLines));
@@ -357,7 +357,7 @@ function format(text) {
 				continue;
 			}
 		}
-		
+
 		// Check if we're in a data section
 		let inDataSection = false;
 		let dataSection = null;
@@ -368,7 +368,7 @@ function format(text) {
 				break;
 			}
 		}
-		
+
 		// Handle .data section
 		if (inDataSection) {
 			// Comment-only line in .data section - ends multi-line data block
@@ -382,23 +382,23 @@ function format(text) {
 				}
 				continue;
 			}
-			
+
 			// Empty line ends multi-line data block
 			if (!trimmed && !line.comment) {
 				inMultiLineData = false;
 				result.push('');
 				continue;
 			}
-			
+
 			// Data declaration with label
 			if (trimmed.includes(':')) {
 				const colonPos = trimmed.indexOf(':');
 				const label = trimmed.substring(0, colonPos);
 				const rest = trimmed.substring(colonPos + 1).trim();
-				
+
 				// End any previous multi-line data block
 				inMultiLineData = false;
-				
+
 				if (rest) {
 					// Label with data on same line - align the data part
 					const spaces = ' '.repeat(dataSection.maxLabelLength - label.length + 1);
@@ -410,12 +410,12 @@ function format(text) {
 				}
 				continue;
 			}
-			
+
 			// Check what type of line this is - use trimmed for all checks
 			const isDataDir = isDataDirective(trimmed);
 			const isStandaloneDir = isStandaloneDirective(trimmed);
 			const isStringOrValue = !trimmed.startsWith('.') && trimmed.length > 0;
-			
+
 			// Standalone directives END multi-line data block (like comments do)
 			if (isStandaloneDir) {
 				inMultiLineData = false;
@@ -430,7 +430,7 @@ function format(text) {
 				// Check if directive has data after it (e.g., ".byte 1 2 3" vs just ".byte")
 				const directiveMatch = trimmed.match(/^\.\w+\s+/);
 				const hasDataAfter = directiveMatch && trimmed.length > directiveMatch[0].length;
-				
+
 				if (hasDataAfter) {
 					// Has data, single indent (not part of multi-line block)
 					result.push('\t' + trimmed + (line.comment ? ' ' + line.comment : ''));
@@ -451,7 +451,7 @@ function format(text) {
 			}
 			continue;
 		}
-		
+
 		// Handle labels (function names)
 		if (isLabel(line.original)) {
 			// Flush previous function if exists
@@ -463,7 +463,7 @@ function format(text) {
 			result.push(trimmed + (line.comment ? ' ' + line.comment : ''));
 			continue;
 		}
-		
+
 		// Handle comment-only lines - always look ahead
 		if (isCommentOnly(line.original)) {
 			// If it's a preserve-indent comment (#!), output as-is with original indentation
@@ -477,15 +477,15 @@ function format(text) {
 				result.push(line.original);
 				continue;
 			}
-			
+
 			// Look ahead to see if next non-comment line is a label or directive
 			const nextLine = findNextNonCommentLine(lines, i);
 			const nextTrimmed = nextLine ? nextLine.code.trim() : '';
-			
+
 			// Don't indent if comment is right before: function label, .data, .text, or other directives
-			if (nextLine && (isLabel(nextLine.original) || 
-			                 isSectionDirective(nextLine.original) ||
-			                 nextTrimmed.startsWith('.'))) {
+			if (nextLine && (isLabel(nextLine.original) ||
+				isSectionDirective(nextLine.original) ||
+				nextTrimmed.startsWith('.'))) {
 				// This comment is right before a special line, don't indent
 				// If we're in a function, flush it first
 				if (currentFunction !== null) {
@@ -511,7 +511,7 @@ function format(text) {
 			}
 			continue;
 		}
-		
+
 		// Empty line
 		if (!trimmed && !line.comment) {
 			if (currentFunction !== null) {
@@ -521,7 +521,7 @@ function format(text) {
 			}
 			continue;
 		}
-		
+
 		// Accumulate lines within a function
 		if (currentFunction !== null) {
 			functionLines.push(line);
@@ -535,30 +535,30 @@ function format(text) {
 			}
 		}
 	}
-	
+
 	// Flush any remaining function
 	if (currentFunction !== null) {
 		result.push(...formatFunction(functionLines));
 	}
-	
+
 	return result.join('\n') + '\n';
 }
 
 function formatFunction(lines) {
 	const result = [];
-	
+	const TAB_WIDTH = 4;
+
 	// Find max code length for inline comment alignment
 	let maxCodeLength = 0;
 	for (const line of lines) {
 		if (line.code && !isCommentOnly(line.original)) {
-			// Code line: calculate length with one tab
-			maxCodeLength = Math.max(maxCodeLength, line.code.length + 4); // +4 for the tab
+			maxCodeLength = Math.max(maxCodeLength, line.code.length);
 		}
 	}
-	
-	// Add 1 space after the longest code line for comment alignment
-	const commentColumn = maxCodeLength + 1;
-	
+
+	// Align inline comments one tab-width after the longest code line
+	const commentColumn = maxCodeLength + TAB_WIDTH;
+
 	for (const line of lines) {
 		// Comment-only line: indent with one tab
 		if (isCommentOnly(line.original)) {
@@ -566,12 +566,11 @@ function formatFunction(lines) {
 		}
 		// Code line with possible inline comment
 		else if (line.code) {
-			const codeLine = '\t' + line.code;
 			if (line.comment) {
-				const padding = ' '.repeat(Math.max(1, commentColumn - codeLine.length));
-				result.push(codeLine + padding + line.comment);
+				const padding = ' '.repeat(Math.max(1, commentColumn - line.code.length));
+				result.push('\t' + line.code + padding + line.comment);
 			} else {
-				result.push(codeLine);
+				result.push('\t' + line.code);
 			}
 		}
 		// Empty line
@@ -579,7 +578,7 @@ function formatFunction(lines) {
 			result.push('');
 		}
 	}
-	
+
 	return result;
 }
 
